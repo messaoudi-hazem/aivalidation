@@ -2,13 +2,10 @@ import sys
 sys.dont_write_bytecode = True
 
 from typing import List
+import re
 from pydantic import BaseModel, Field
 
-from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
-from langchain.agents import tool
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema.agent import AgentFinish
-from langchain.tools.render import format_tool_to_openai_function
+from langchain_core.tools import tool
 
 
 RAG_K_THRESHOLD = 5
@@ -69,10 +66,6 @@ class SelfQueryRetriever(RAGRetriever):
   def __init__(self, vectorstore_db, df):
     super().__init__(vectorstore_db, df)
 
-    self.prompt = ChatPromptTemplate.from_messages([
-      ("system", "You are an expert in talent acquisition."),
-      ("user", "{input}")
-    ])
     self.meta_data = {
       "rag_mode": "",
       "query_type": "no_retrieve",
@@ -92,7 +85,7 @@ class SelfQueryRetriever(RAGRetriever):
           resume_df = self.df[self.df["ID"].astype(str) == id].iloc[0][["ID", "Resume"]]
           resume_with_id = "Applicant ID " + resume_df["ID"].astype(str) + "\n" + resume_df["Resume"]
           retrieved_resumes.append(resume_with_id)
-        except:
+        except IndexError:
           return []
       return retrieved_resumes
 
@@ -110,22 +103,54 @@ class SelfQueryRetriever(RAGRetriever):
       retrieved_resumes = self.retrieve_documents_with_id(retrieved_ids)
       return retrieved_resumes
     
-    def router(response):
-      if isinstance(response, AgentFinish):
-        return response.return_values["output"]
-      else:
-        toolbox = {
-          "retrieve_applicant_id": retrieve_applicant_id,
-          "retrieve_applicant_jd": retrieve_applicant_jd
-        }
-        self.meta_data["query_type"] = response.tool
-        self.meta_data["extracted_input"] = response.tool_input
-        return toolbox[response.tool].run(response.tool_input)
-      
     self.meta_data["rag_mode"] = rag_mode
-    llm_func_call = llm.llm.bind(functions=[format_tool_to_openai_function(tool) for tool in [retrieve_applicant_id, retrieve_applicant_jd]])
+    tools = [retrieve_applicant_id, retrieve_applicant_jd]
+    normalized_question = question.lower()
+    retrieval_hint = any(keyword in normalized_question for keyword in (
+      "find", "search", "looking for", "hire", "need a", "candidate",
+      "applicant", "resume", "python", "java", "developer", "developper",
+      "engineer", "experience", "experince", "skill", "qualification",
+      "requirement", "job description"
+    ))
+    if llm.provider in {"Hugging Face", "Groq"} or retrieval_hint and llm.provider == "Ollama":
+      applicant_ids = re.findall(
+        r"\b(?:applicant|candidate)\s+(?:id\s*)?#?([A-Za-z0-9_-]+)\b|\b(?:resume|id)\s*#([A-Za-z0-9_-]+)\b",
+        question,
+        re.IGNORECASE
+      )
+      applicant_ids = [first or second for first, second in applicant_ids]
+      if applicant_ids:
+        self.meta_data["query_type"] = "retrieve_applicant_id"
+        self.meta_data["extracted_input"] = {"id_list": applicant_ids}
+        return retrieve_applicant_id.invoke({"id_list": applicant_ids})
+      self.meta_data["query_type"] = "retrieve_applicant_jd"
+      self.meta_data["extracted_input"] = {"job_description": question}
+      return retrieve_applicant_jd.invoke({"job_description": question})
 
-    chain = self.prompt | llm_func_call | OpenAIFunctionsAgentOutputParser() | router
-    result = chain.invoke({"input": question})
+    response = llm.llm.bind_tools(tools).invoke([
+      ("system", "You are an expert in talent acquisition. Choose exactly one retrieval tool when the user asks about resumes or a job description. Otherwise, answer without using a tool."),
+      ("user", question)
+    ])
 
-    return result
+    retrieval_hint = retrieval_hint or len(question) >= 120
+    if not response.tool_calls and retrieval_hint:
+      response = llm.llm.bind_tools(tools, tool_choice="any").invoke([
+        ("system", "Use the most appropriate retrieval tool for this resume or job-description request."),
+        ("user", question)
+      ])
+
+    if not response.tool_calls:
+      self.meta_data["query_type"] = "no_retrieve"
+      return []
+
+    tool_call = response.tool_calls[0]
+    toolbox = {
+      "retrieve_applicant_id": retrieve_applicant_id,
+      "retrieve_applicant_jd": retrieve_applicant_jd
+    }
+    if tool_call["name"] not in toolbox:
+      raise ValueError(f"Unsupported retrieval tool returned by model: {tool_call['name']}")
+
+    self.meta_data["query_type"] = tool_call["name"]
+    self.meta_data["extracted_input"] = tool_call["args"]
+    return toolbox[tool_call["name"]].invoke(tool_call["args"])

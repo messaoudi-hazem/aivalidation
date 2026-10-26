@@ -1,29 +1,58 @@
-import sys, httpx, os
+import sys, os
 sys.dont_write_bytecode = True
 
 from dotenv import load_dotenv
 
-from langchain_openai.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage, AIMessage
+from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
+from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 
 load_dotenv()
 
-DATA_PATH = os.getenv("DATA_PATH")
-FAISS_PATH = os.getenv("FAISS_PATH")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL")
-RAG_K_THRESHOLD = 5
-LLM_MODEL = "gpt-35-turbo"
-CUSTOMED_ENDPOINT = "https://aalto-openai-apigw.azure-api.net"
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_LLM_MODEL = os.getenv("OLLAMA_LLM_MODEL", "qwen3:8b")
 
 
-class ChatBot():
-  def __init__(self, api_key: str, model: str):
-    self.llm = ChatOpenAI(
-      model=model, 
-      api_key=api_key, 
-      temperature=0.1
-    )
+class ChatBot:
+  def __init__(
+    self,
+    provider: str = "Ollama",
+    model: str = OLLAMA_LLM_MODEL,
+    api_key: str = "",
+    base_url: str = ""
+  ):
+    self.provider = provider
+    if provider == "Ollama":
+      self.llm = ChatOllama(
+        model=model,
+        base_url=base_url or OLLAMA_BASE_URL,
+        temperature=0.1,
+        reasoning=False,
+        num_predict=512
+      )
+    elif provider in {"OpenAI", "Groq"}:
+      self.llm = ChatOpenAI(
+        model=model,
+        api_key=api_key,
+        base_url=base_url or None,
+        temperature=0.1,
+        max_tokens=512
+      )
+    elif provider == "Hugging Face":
+      if not api_key.startswith("hf_"):
+        raise ValueError("Hugging Face requires a token beginning with 'hf_'.")
+      endpoint = HuggingFaceEndpoint(
+        repo_id=model,
+        provider="auto",
+        huggingfacehub_api_token=api_key,
+        temperature=0.1,
+        max_new_tokens=512
+      )
+      self.llm = ChatHuggingFace(llm=endpoint)
+    else:
+      raise ValueError(f"Unsupported AI provider: {provider}")
 
   def generate_subquestions(self, question: str):
     system_message = SystemMessage(content="""

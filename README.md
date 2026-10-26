@@ -78,13 +78,31 @@ To set up the project locally:
 git clone https://github.com/Hungreeee/Resume-Screening-RAG-Pipeline.git
 
 # Install dependencies
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 To run the Streamlit demo locally:
 ```
 streamlit run demo/interface.py
 ```
+
+The local demo uses Ollama. Install and start the `qwen3:8b` and
+`nomic-embed-text` models, then configure `.env`. If the embedding model
+changes, rebuild the FAISS index before starting the app.
+
+The sidebar also supports OpenAI, Groq, and Hugging Face. Select a provider and
+enter its API key at runtime; keys are kept only in the Streamlit session and
+are not written to `.env` or project files. Ollama runs locally and normally
+does not need a key.
+
+### Deploying to Render
+
+Render cannot reach a local Ollama server. The included `render.yaml` uses
+OpenAI `text-embedding-3-small` to build a deployment-safe FAISS index during
+the Render build. Add `OPENAI_API_KEY` as a secret environment variable in
+Render. At runtime, choose Groq, OpenAI, or Hugging Face in the sidebar for
+answer generation and enter that provider's key. Do not commit `.env` or API
+keys.
 
 ## Contributions
 

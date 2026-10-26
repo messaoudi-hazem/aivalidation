@@ -1,11 +1,13 @@
 # %%
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pandas as pd
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.faiss import DistanceStrategy
 from langchain_community.document_loaders import DataFrameLoader
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from embeddings import create_embeddings
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,10 +17,7 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL")
 FAISS_PATH = os.getenv("FAISS_PATH")
 
 # %%
-embedding_model = HuggingFaceEmbeddings(
-    model_name=EMBEDDING_MODEL,
-    model_kwargs={"device": "cpu"}
-)
+embedding_model = create_embeddings()
 
 df = pd.read_csv(DATA_PATH)
 loader = DataFrameLoader(df, page_content_column="Resume")

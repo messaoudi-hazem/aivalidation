@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: resume-screening-rag
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && python demo/interactive/ingest_data.py
+    startCommand: streamlit run demo/interface.py --server.address 0.0.0.0 --server.port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DATA_PATH
+        value: ./data/main-data/synthetic-resumes.csv
+      - key: FAISS_PATH
+        value: ./vectorstore-openai
+      - key: EMBEDDING_PROVIDER
+        value: openai
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: OPENAI_API_KEY
+        sync: false
