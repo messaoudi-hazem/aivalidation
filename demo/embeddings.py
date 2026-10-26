@@ -1,7 +1,5 @@
 import os
 
-from langchain_openai import OpenAIEmbeddings
-
 try:
   from .ollama_embeddings import BatchedOllamaEmbeddings
 except ImportError:
@@ -17,10 +15,11 @@ def create_embeddings():
       model=model,
       base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     )
-  if provider == "openai":
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not api_key:
-      raise ValueError("OPENAI_API_KEY is required when EMBEDDING_PROVIDER=openai.")
-    return OpenAIEmbeddings(model=model, api_key=api_key)
+  if provider == "fastembed":
+    try:
+      from .fastembed_embeddings import FastEmbedEmbeddings
+    except ImportError:
+      from fastembed_embeddings import FastEmbedEmbeddings
+    return FastEmbedEmbeddings(model=model)
 
   raise ValueError(f"Unsupported embedding provider: {provider}")

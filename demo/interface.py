@@ -24,6 +24,7 @@ FAISS_PATH = os.getenv("FAISS_PATH")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL")
 OLLAMA_LLM_MODEL = os.getenv("OLLAMA_LLM_MODEL", "qwen3:8b")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 print(DATA_PATH)
 print(FAISS_PATH)
@@ -133,7 +134,7 @@ with st.sidebar:
     st.text_input("OpenAI API Key", type="password", key="api_key")
     st.text_input("OpenAI Model", "gpt-4o-mini", key="openai_model")
   elif st.session_state.provider_selection == "Groq":
-    st.text_input("Groq API Key", type="password", key="api_key")
+    st.text_input("Groq API Key", value=GROQ_API_KEY, type="password", key="api_key")
     st.text_input("Groq Model", "llama-3.3-70b-versatile", key="groq_model")
     st.caption("Groq uses an OpenAI-compatible API.")
   else:

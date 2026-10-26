@@ -11,10 +11,10 @@ services:
       - key: DATA_PATH
         value: ./data/main-data/synthetic-resumes.csv
       - key: FAISS_PATH
-        value: ./vectorstore-openai
+        value: ./vectorstore-fastembed
       - key: EMBEDDING_PROVIDER
-        value: openai
+        value: fastembed
       - key: EMBEDDING_MODEL
-        value: text-embedding-3-small
-      - key: OPENAI_API_KEY
+        value: BAAI/bge-small-en-v1.5
+      - key: GROQ_API_KEY
         sync: false

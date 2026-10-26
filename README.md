@@ -97,12 +97,15 @@ does not need a key.
 
 ### Deploying to Render
 
-Render cannot reach a local Ollama server. The included `render.yaml` uses
-OpenAI `text-embedding-3-small` to build a deployment-safe FAISS index during
-the Render build. Add `OPENAI_API_KEY` as a secret environment variable in
-Render. At runtime, choose Groq, OpenAI, or Hugging Face in the sidebar for
+Render cannot reach a local Ollama server. The included `render.yaml` uses the
+local ONNX-based FastEmbed model `BAAI/bge-small-en-v1.5` to build a
+deployment-safe FAISS index during the Render build. No embedding API key is
+required. At runtime, choose Groq, OpenAI, or Hugging Face in the sidebar for
 answer generation and enter that provider's key. Do not commit `.env` or API
 keys.
+
+For Render, add `GROQ_API_KEY` as a secret environment variable if you want the
+deployed app to prefill the masked Groq credential.
 
 ## Contributions
 
